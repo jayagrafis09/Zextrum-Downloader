@@ -1,5 +1,6 @@
 import express from 'express';
 import { getVideoInfo } from '../services/downloadService';
+import { verifyFFmpeg } from '../services/ffmpegService';
 
 const router = express.Router();
 
@@ -29,6 +30,27 @@ router.get('/', async (req, res) => {
     console.error('Get video info error:', error);
     res.status(500).json({
       error: 'Failed to fetch video information',
+      details: error.message
+    });
+  }
+});
+
+// GET /api/info/system - Check system dependencies
+router.get('/system', async (req, res) => {
+  try {
+    const ffmpegAvailable = await verifyFFmpeg();
+
+    res.json({
+      success: true,
+      system: {
+        ffmpeg: ffmpegAvailable ? '✅ Available' : '❌ Not available',
+        node: process.version,
+        platform: process.platform
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      error: 'Failed to check system info',
       details: error.message
     });
   }

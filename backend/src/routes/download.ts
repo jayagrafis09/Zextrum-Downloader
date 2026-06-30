@@ -1,11 +1,22 @@
 import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import { promisify } from 'util';
 import {
   downloadVideo,
-  downloadAudio,
+  downloadAudio as downloadAudioYtdlp,
   downloadSubtitles
 } from '../services/downloadService';
+import {
+  convertToMp3,
+  convertToM4a,
+  convertToWav,
+  extractAudio,
+  getAudioInfo
+} from '../services/ffmpegService';
 
 const router = express.Router();
+const unlinkAsync = promisify(fs.unlink);
 
 // POST /api/download/video
 router.post('/video', async (req, res) => {
@@ -33,7 +44,8 @@ router.post('/video', async (req, res) => {
       message: 'Video downloaded successfully',
       filename: result.filename,
       size: result.size,
-      sizeInMB: (result.size / 1024 / 1024).toFixed(2) + ' MB'
+      sizeInMB: (result.size / 1024 / 1024).toFixed(2) + ' MB',
+      downloadUrl: `/downloads/${result.filename}`
     });
   } catch (error: any) {
     console.error('Download video error:', error);
@@ -58,20 +70,64 @@ router.post('/audio', async (req, res) => {
       return res.status(400).json({ error: 'Invalid YouTube URL' });
     }
 
-    const validFormats = ['mp3', 'm4a', 'wav', 'opus', 'vorbis'];
+    const validFormats = ['mp3', 'm4a', 'wav'];
     const selectedFormat = validFormats.includes(format) ? format : 'mp3';
 
     console.log(`Downloading audio: ${url} (format: ${selectedFormat})`);
 
-    const result = await downloadAudio(url, selectedFormat);
+    // Download best audio with yt-dlp
+    const ytdlpResult = await downloadAudioYtdlp(url, 'best');
+    const inputPath = ytdlpResult.path;
+    
+    // If format is not mp3, convert it
+    let finalResult = ytdlpResult;
+    if (selectedFormat !== 'mp3') {
+      const downloadPath = process.env.DOWNLOAD_PATH || './downloads';
+      const timestamp = Date.now();
+      const outputPath = path.join(
+        downloadPath,
+        `audio_${timestamp}_converted.${selectedFormat}`
+      );
+
+      console.log(`Converting audio to ${selectedFormat}...`);
+
+      if (selectedFormat === 'm4a') {
+        await convertToM4a(inputPath, outputPath, 'high');
+      } else if (selectedFormat === 'wav') {
+        await convertToWav(inputPath, outputPath);
+      }
+
+      // Clean up original file
+      try {
+        await unlinkAsync(inputPath);
+      } catch (err) {
+        console.warn('Failed to delete original audio file');
+      }
+
+      const stats = fs.statSync(outputPath);
+      finalResult = {
+        filename: path.basename(outputPath),
+        path: outputPath,
+        size: stats.size
+      };
+    }
+
+    // Get audio info
+    const audioInfo = await getAudioInfo(finalResult.path);
 
     res.json({
       success: true,
       message: 'Audio downloaded successfully',
-      filename: result.filename,
+      filename: finalResult.filename,
       format: selectedFormat,
-      size: result.size,
-      sizeInMB: (result.size / 1024 / 1024).toFixed(2) + ' MB'
+      size: finalResult.size,
+      sizeInMB: (finalResult.size / 1024 / 1024).toFixed(2) + ' MB',
+      duration: audioInfo.duration,
+      bitrate: audioInfo.bitrate,
+      sampleRate: audioInfo.sampleRate,
+      channels: audioInfo.channels,
+      codec: audioInfo.codec,
+      downloadUrl: `/downloads/${finalResult.filename}`
     });
   } catch (error: any) {
     console.error('Download audio error:', error);
@@ -108,7 +164,8 @@ router.post('/subtitles', async (req, res) => {
       filename: result.filename,
       language: selectedLanguage,
       size: result.size,
-      sizeInKB: (result.size / 1024).toFixed(2) + ' KB'
+      sizeInKB: (result.size / 1024).toFixed(2) + ' KB',
+      downloadUrl: `/downloads/${result.filename}`
     });
   } catch (error: any) {
     console.error('Download subtitles error:', error);
