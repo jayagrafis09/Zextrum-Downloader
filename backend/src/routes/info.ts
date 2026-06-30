@@ -1,28 +1,45 @@
 import express from 'express';
+import { getVideoInfo } from '../services/downloadService';
+
 const router = express.Router();
 
 // GET /api/info?url=<youtube_url>
 router.get('/', async (req, res) => {
   try {
     const { url } = req.query;
-    
+
+    // Validation
     if (!url) {
       return res.status(400).json({ error: 'URL parameter is required' });
     }
 
-    // TODO: Implement video info extraction using yt-dlp
+    if (typeof url !== 'string' || !isValidYouTubeUrl(url)) {
+      return res.status(400).json({ error: 'Invalid YouTube URL' });
+    }
+
+    console.log(`Fetching info for: ${url}`);
+
+    const videoInfo = await getVideoInfo(url);
+
     res.json({
-      message: 'Video info endpoint - to be implemented',
-      url,
-      info: {
-        title: 'Example Video',
-        duration: 600,
-        thumbnail: 'https://via.placeholder.com/320x180'
-      }
+      success: true,
+      data: videoInfo
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Get video info error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch video information',
+      details: error.message
+    });
   }
 });
+
+/**
+ * Helper: Validate YouTube URL
+ */
+function isValidYouTubeUrl(url: string): boolean {
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube|youtu|youtube-nocookie)\.(com|be)\//;
+  return youtubeRegex.test(url);
+}
 
 export default router;
