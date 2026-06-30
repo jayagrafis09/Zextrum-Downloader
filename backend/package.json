@@ -1,12 +1,4 @@
-{
-  "name": "zextrum-downloader-backend",
-  "version": "1.0.0",
-  "description": "Backend for Zextrum Downloader - YouTube downloader API",
-  "main": "dist/index.js",
-  "scripts": {
-    "dev": "ts-node src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+{\n  "name": "zextrum-downloader-backend",\n  "version": "1.0.0",\n  "description": "Backend for Zextrum Downloader - YouTube downloader API",\n  "main": "dist/index.js",\n  "scripts": {\n    "dev": "ts-node src/index.ts",\n    "build": "tsc",\n    "start": "node dist/index.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,12 +6,14 @@
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
     "cors": "^2.8.5",
-    "helmet": "^7.1.0"
+    "helmet": "^7.1.0",
+    "fluent-ffmpeg": "^2.1.2"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.0",
     "@types/cors": "^2.8.17",
+    "@types/fluent-ffmpeg": "^2.1.4",
     "typescript": "^5.3.3",
     "ts-node": "^10.9.2"
   }
